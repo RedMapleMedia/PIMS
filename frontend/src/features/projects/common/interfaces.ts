@@ -129,6 +129,8 @@ export interface IProject {
   agencyResponseNote?: string;
   offersNote?: string;
   agencyId: number;
+  agency?: string;
+  subAgency?: string;
   statusId: number;
   status?: IStatus;
   exemptionRationale?: string;
@@ -344,6 +346,10 @@ export interface IApiProject {
   properties: IProjectProperty[];
   projectAgencyResponses: IProjectAgencyResponse[];
   note: string;
+  netBook: number | '';
+  estimated: number | '';
+  assessed: number | '';
+  appraised?: number | '';
   publicNote: string;
   privateNote: string;
   exemptionRequested?: boolean;

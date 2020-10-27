@@ -18,6 +18,7 @@ import { Table } from 'components/Table';
 import service from '../service';
 import { FaFolderOpen, FaFolder } from 'react-icons/fa';
 import { Properties } from 'features/projects/list/properties';
+import { useRouterFilter } from 'hooks/useRouterFilter';
 
 const getPropertyReportUrl = (filter: IPropertyFilter) =>
   `${ENVIRONMENT.apiUrl}/reports/properties?${filter ? queryString.stringify(filter) : ''}`;
@@ -95,8 +96,8 @@ const PropertyListView: React.FC = () => {
 
   // We'll start our table without any data
   const [data, setData] = useState<IProperty[]>([]);
-  // For getting the buildings on parcel click
-  const [expandData, setExpandData] = useState<IProperty[]>([]);
+  // For getting the buildings on parcel folder click
+  const [expandData, setExpandData] = useState<any>({});
 
   // Filtering and pagination state
   const [filter, setFilter] = useState<IFilterBarState>({
@@ -155,13 +156,15 @@ const PropertyListView: React.FC = () => {
       // setLoading(true);
 
       // Only update the data if this is the latest fetch
-      if (fetchId === fetchIdRef.current && agencyIds?.length > 0) {
+      if (agencyIds?.length > 0) {
         const query = getServerQuery({ pageIndex, pageSize, filter, agencyIds });
         const data = await service.getPropertyList(query);
         // The server could send back total page count.
         // For now we'll just calculate it.
-        setData(data.items);
-        setPageCount(Math.ceil(data.total / pageSize));
+        if (fetchId === fetchIdRef.current && data?.items) {
+          setData(data.items);
+          setPageCount(Math.ceil(data.total / pageSize));
+        }
 
         // setLoading(false);
       }
@@ -175,6 +178,7 @@ const PropertyListView: React.FC = () => {
   }, [fetchData, pageIndex, pageSize, filter, agencyIds]);
 
   const dispatch = useDispatch();
+  useRouterFilter(filter, setFilter, 'listFilter');
 
   const fetch = (accept: 'csv' | 'excel') => {
     const query = getServerQuery({ pageIndex, pageSize, filter, agencyIds });
@@ -201,8 +205,14 @@ const PropertyListView: React.FC = () => {
     if (expandedRows.length > 0) {
       await Promise.all(
         expandedRows.map(async property => {
-          property.propertyTypeId === 0 &&
-            setExpandData((await service.loadBuildings(property.id)).items);
+          if (property.propertyTypeId === 0) {
+            if (expandData[property.id] === undefined) {
+              setExpandData({
+                ...expandData,
+                [property.id]: (await service.loadBuildings(property.id)).items,
+              });
+            }
+          }
         }),
       );
     }
@@ -215,6 +225,7 @@ const PropertyListView: React.FC = () => {
           <FilterBar
             agencyLookupCodes={agencies}
             propertyClassifications={propertyClassifications}
+            filter={filter}
             onChange={handleFilterChange}
           />
         </Container>
@@ -243,11 +254,15 @@ const PropertyListView: React.FC = () => {
             }
           }}
           detailsPanel={{
-            render: () => <Properties hideHeaders={true} data={expandData} />,
+            render: val => {
+              if (expandData[val.id]) {
+                return <Properties hideHeaders={true} data={expandData[val.id]} />;
+              }
+            },
             icons: { open: <FaFolderOpen color="black" />, closed: <FaFolder color="black" /> },
             checkExpanded: (row, state) => !!state.find(x => checkExpanded(x, row)),
             onExpand: loadBuildings,
-            getRowId: row => row.projectNumber,
+            getRowId: row => row.id,
           }}
         />
       </div>

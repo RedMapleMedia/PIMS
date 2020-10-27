@@ -25,6 +25,7 @@ namespace Pims.Api.Areas.Tools.Helpers
         private readonly IList<Entity.PropertyClassification> _propertyClassifications;
         private readonly IList<Entity.City> _cities;
         private readonly IList<Entity.Agency> _agencies;
+        private readonly Dictionary<string, string> _agencyCodeCorrections = new Dictionary<string, string>() { { "BT", "BCT" }, { "ICOB", "ICBC" } };
         #endregion
 
         #region Constructors
@@ -48,6 +49,104 @@ namespace Pims.Api.Areas.Tools.Helpers
         #endregion
 
         #region Methods
+        /// <summary>
+        /// Update the specified property financials only.
+        /// This will only add new financial year values to existing properties.
+        /// All other property metadata will remain unchanged.
+        /// </summary>
+        /// <param name="properties"></param>
+        /// <returns></returns>
+        public IEnumerable<Entity.Parcel> UpdatePropertyFinancials(IEnumerable<Model.ImportPropertyModel> properties)
+        {
+            if (properties == null) throw new ArgumentNullException(nameof(properties));
+
+            var entities = new List<Entity.Parcel>();
+            foreach (var property in properties)
+            {
+                var parcelId = property.ParcelId ?? property.PID;
+                _logger.LogDebug($"Update property financials pid:{parcelId}, type:{property.PropertyType}, fiscal:{property.FiscalYear}, local:{property.LocalId}");
+
+                var validPid = int.TryParse(parcelId?.Replace("-", ""), out int pid);
+                if (!validPid) continue;
+
+                if (String.Compare(property.PropertyType, "Land") == 0)
+                {
+                    entities.Add(UpdateParcelFinancials(property, pid));
+                }
+                else if (String.Compare(property.PropertyType, "Building") == 0)
+                {
+                    UpdateBuildingFinancials(property, pid);
+                }
+            }
+
+            return entities;
+        }
+
+        /// <summary>
+        /// Check if the parcel exists, if it does then it will update the financials if there are newer values provided.
+        /// </summary>
+        /// <param name="property"></param>
+        /// <param name="pid"></param>
+        /// <returns></returns>
+        private Entity.Parcel UpdateParcelFinancials(Model.ImportPropertyModel property, int pid)
+        {
+            var p_e = ExceptionHelper.HandleKeyNotFoundWithDefault(() => _pimsAdminService.Parcel.GetByPid(pid));
+            var evaluationDate = new DateTime(property.FiscalYear, 1, 1); // Defaulting to Jan 1st because SIS data doesn't have the actual date.
+
+            // Ignore properties that are not part of inventory.
+            if (p_e.Id == 0) return null;
+
+            // Add a new fiscal values for each year.
+            if (!p_e.Fiscals.Any(e => e.FiscalYear == property.FiscalYear))
+            {
+                p_e.Fiscals.Add(new Entity.ParcelFiscal(p_e, property.FiscalYear, Entity.FiscalKeys.NetBook, property.NetBook));
+            }
+
+            // Add a new evaluation if new.
+            if (!p_e.Evaluations.Any(e => e.Date == evaluationDate))
+            {
+                p_e.Evaluations.Add(new Entity.ParcelEvaluation(p_e, evaluationDate, Entity.EvaluationKeys.Assessed, property.Assessed));
+            }
+
+            _pimsAdminService.Parcel.UpdateFinancials(p_e);
+            _logger.LogDebug($"Updating parcel '{property.PID}'");
+
+            return p_e;
+        }
+
+        /// <summary>
+        /// Check if the building exists, if it does then it will update the financials if there are newer values provided.
+        /// </summary>
+        /// <param name="property"></param>
+        /// <param name="pid"></param>
+        /// <returns></returns>
+        private Entity.Building UpdateBuildingFinancials(Model.ImportPropertyModel property, int pid)
+        {
+            var lid = property.LocalId;
+            var b_e = ExceptionHelper.HandleKeyNotFoundWithDefault(() => _pimsAdminService.Building.GetByPidAndLocalId(pid, lid));
+            var evaluationDate = new DateTime(property.FiscalYear, 1, 1); // Defaulting to Jan 1st because SIS data doesn't have the actual date.
+
+            // Ignore properties that are not part of inventory.
+            if (b_e.Id == 0) return null;
+
+            // Add a new fiscal values for each year.
+            if (!b_e.Fiscals.Any(e => e.FiscalYear == property.FiscalYear))
+            {
+                b_e.Fiscals.Add(new Entity.BuildingFiscal(b_e, property.FiscalYear, Entity.FiscalKeys.NetBook, property.NetBook));
+            }
+
+            // Add a new evaluation if new.
+            if (!b_e.Evaluations.Any(e => e.Date == evaluationDate))
+            {
+                b_e.Evaluations.Add(new Entity.BuildingEvaluation(b_e, evaluationDate, Entity.EvaluationKeys.Assessed, property.Assessed));
+            }
+
+            _pimsAdminService.Building.UpdateFinancials(b_e);
+            _logger.LogDebug($"Updating building '{property.PID}:{property.LocalId}'");
+
+            return b_e;
+        }
+
         /// <summary>
         /// Adds or updates the property in the datasource.
         /// Determines if the property is a parcel or a building.
@@ -104,6 +203,13 @@ namespace Pims.Api.Areas.Tools.Helpers
             if (!String.IsNullOrWhiteSpace(property.SubAgency))
             {
                 var createCode = new string(property.SubAgency.GetFirstLetterOfEachWord(true).Take(6).ToArray()).Trim();
+
+                //check if this agency mapping needs to be corrected.
+                string mappedCode = null;
+                if (_agencyCodeCorrections.TryGetValue(createCode, out mappedCode))
+                {
+                    createCode = mappedCode;
+                }
                 var subAgency = _agencies.FirstOrDefault(a =>
                     (a.ParentId == agency.Id && a.Name == property.SubAgency)
                     || (a.ParentId == agency.Id && a.Code == createCode)
@@ -222,7 +328,7 @@ namespace Pims.Api.Areas.Tools.Helpers
             // Copy properties over to entity.
             p_e.PID = pid;
 
-            // Determine if the last evaluation or fiscal values are older than the one currently being imported.
+            // Determine if the last evaluation or fiscal values in the datasource are older than the one currently being imported.
             var fiscalNetBook = p_e.Fiscals.OrderByDescending(f => f.FiscalYear).FirstOrDefault(f => f.Key == Entity.FiscalKeys.NetBook && f.FiscalYear > fiscalYear);
             var evaluationAssessed = p_e.Evaluations.OrderByDescending(e => e.Date).FirstOrDefault(e => e.Key == Entity.EvaluationKeys.Assessed && e.Date > evaluationDate);
 

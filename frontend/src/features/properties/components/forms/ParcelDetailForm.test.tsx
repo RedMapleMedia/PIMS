@@ -227,7 +227,7 @@ describe('ParcelDetailForm', () => {
       });
       const errors = getAllByText('Required');
       const idErrors = getAllByText('PID must be in the format ###-###-###');
-      expect(errors).toHaveLength(3);
+      expect(errors).toHaveLength(6);
       expect(idErrors).toHaveLength(1);
     });
 
@@ -265,7 +265,6 @@ describe('ParcelDetailForm', () => {
       await fillInput(container, 'isSensitive', true, 'radio');
       // await fillInput(container, 'financials.1.date', exampleData.evaluations[1].date);
       // TODO: add a function capable of filling this type of field
-      await fillInput(container, 'financials.0.netbook.value', exampleData.fiscals[1].value);
       (updateParcel as any).mockImplementation((parcel: IParcel) => {
         expect(parcel.isSensitive).toBeTruthy();
         expect(parcel.pin).toEqual(exampleData.pin);

@@ -11,7 +11,6 @@ import EvaluationForm, {
   defaultFinancials,
   filterEmptyFinancials,
   getMergedFinancials,
-  validateFinancials,
   IFinancial,
   IFinancialYear,
 } from './subforms/EvaluationForm';
@@ -41,6 +40,9 @@ import useKeycloakWrapper from 'hooks/useKeycloakWrapper';
 import { Claims } from 'constants/claims';
 import GenericModal from 'components/common/GenericModal';
 import DebouncedValidation from './subforms/DebouncedValidation';
+import styled from 'styled-components';
+import LastUpdatedBy from '../LastUpdatedBy';
+import ManualLink from 'features/projects/common/components/ManualLink';
 
 interface ParcelPropertyProps {
   parcelDetail: IParcel | null;
@@ -64,6 +66,12 @@ export interface IFormParcel extends IParcel {
   financials: IFinancialYear[];
   buildings: IFormBuilding[];
 }
+
+const FormControls = styled.div`
+  display: flex;
+  justify-content: flex-end;
+  align-items: baseline;
+`;
 
 const showAppraisal = false;
 
@@ -175,18 +183,6 @@ const ParcelDetailForm = (props: ParcelPropertyProps) => {
    */
   const handleValidate = async (values: IFormParcel) => {
     let financialErrors = {};
-
-    if (values.pid) {
-      financialErrors = validateFinancials(values.financials, 'financials', showAppraisal);
-      values.buildings.forEach((building, index) => {
-        const result = validateFinancials(
-          building.financials,
-          `buildings.${index}.financials`,
-          showAppraisal,
-        );
-        _.merge(financialErrors, result);
-      });
-    }
 
     const yupErrors: any = ParcelSchema.validate(values, { abortEarly: false }).then(
       () => {
@@ -411,20 +407,27 @@ const ParcelDetailForm = (props: ParcelPropertyProps) => {
                 {formikProps.status && formikProps.status.msg && (
                   <p style={{ color: 'red' }}>{formikProps.status.msg}</p>
                 )}
-                {!props.disabled && (
-                  <Button disabled={props.disabled} type="submit">
-                    Submit&nbsp;
-                    {formikProps.isSubmitting && (
-                      <Spinner
-                        animation="border"
-                        size="sm"
-                        role="status"
-                        as="span"
-                        style={{ marginLeft: '.5rem' }}
-                      />
-                    )}
-                  </Button>
-                )}
+                <ManualLink
+                  url="https://www2.gov.bc.ca/gov/content/governments/services-for-government/real-estate-space/asset-management-services/inventory-policy "
+                  label="Inventory Policy"
+                />
+                <FormControls>
+                  {formikProps.values.id && <LastUpdatedBy {...(formikProps.values as any)} />}
+                  {!props.disabled && (
+                    <Button disabled={props.disabled} type="submit">
+                      Submit&nbsp;
+                      {formikProps.isSubmitting && (
+                        <Spinner
+                          animation="border"
+                          size="sm"
+                          role="status"
+                          as="span"
+                          style={{ marginLeft: '.5rem' }}
+                        />
+                      )}
+                    </Button>
+                  )}
+                </FormControls>
               </div>
             </Form>
           )}

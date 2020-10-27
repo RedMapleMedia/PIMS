@@ -21,7 +21,7 @@ import {
   getUsersPageIndexAction,
   setUsersPageSize,
 } from 'actions/adminActions';
-import { generateSortCriteria, formatDateTime } from 'utils';
+import { generateSortCriteria, formatApiDateTime } from 'utils';
 import styled from 'styled-components';
 import useCodeLookups from 'hooks/useLookupCodes';
 
@@ -94,8 +94,8 @@ export const ManageUsersPage = () => {
       isDisabled: u.isDisabled,
       roles: u.roles ? u.roles.map(r => r.name).join(', ') : '',
       agency: u.agencies && u.agencies.length > 0 ? u.agencies[0].name : '',
-      position: u.position,
-      lastLogin: formatDateTime(u.lastLogin),
+      position: u.position ?? '',
+      lastLogin: formatApiDateTime(u.lastLogin),
     }),
   );
 

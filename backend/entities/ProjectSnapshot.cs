@@ -23,21 +23,31 @@ namespace Pims.Dal.Entities
         /// </summary>
         public Project Project { get; set; }
 
+        /// <summary>
+        /// get/set - The date that this snapshot was taken.
+        /// </summary>
+        public DateTime SnapshotOn { get; set; }
+
         #region Financials
         /// <summary>
-        /// get/set - The netbook value which is the sum of the properties.
+        /// get/set - The netbook value.
         /// </summary>
         public decimal NetBook { get; set; }
 
         /// <summary>
-        /// get/set - The estimated value which is the sum of the properties.
+        /// get/set - The estimated value.
         /// </summary>
         public decimal Estimated { get; set; }
 
         /// <summary>
-        /// get/set - The assessed value which is the sum of the properties.
+        /// get/set - The assessed value.
         /// </summary>
         public decimal Assessed { get; set; }
+
+        /// <summary>
+        /// get/set - The appraised value.
+        /// </summary>
+        public decimal Appraised { get; set; }
 
         /// <summary>
         /// get/set - The sales cost.
@@ -48,6 +58,11 @@ namespace Pims.Dal.Entities
         /// get/set - The net proceeds
         /// </summary>
         public decimal? NetProceeds { get; set; } // TODO: Move to metadata property.
+
+        /// <summary>
+        /// get/set - The net proceed baseline integrity
+        /// </summary>
+        public decimal? BaselineIntegrity { get; set; } // TODO: Move to metadata property.
 
         /// <summary>
         /// get/set - The program cost.

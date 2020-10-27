@@ -164,7 +164,7 @@ namespace Pims.Dal.Services.Admin
         {
             this.User.ThrowIfNotAuthorized(Permissions.SystemAdmin, Permissions.AgencyAdmin);
 
-            return this.Context.Parcels
+            var parcels = this.Context.Parcels
                 .Include(p => p.Classification)
                 .Include(p => p.Address)
                 .Include(p => p.Address.City)
@@ -180,7 +180,11 @@ namespace Pims.Dal.Services.Admin
                 .Include(p => p.Buildings).ThenInclude(b => b.BuildingConstructionType)
                 .Include(p => p.Buildings).ThenInclude(b => b.BuildingPredominateUse)
                 .Include(p => p.Buildings).ThenInclude(b => b.BuildingOccupantType)
-                .AsNoTracking().SingleOrDefault(u => u.PID == pid) ?? throw new KeyNotFoundException();
+                .AsNoTracking().Where(p => p.PID == pid);
+
+            if (!parcels.Any()) throw new KeyNotFoundException();
+            if (parcels.Count() == 1) return parcels.First();
+            return parcels.SingleOrDefault(p => p.PIN == null) ?? throw new InvalidOperationException($"Parcel '{pid}' does not have a titled property, but has {parcels.Count()} untitled properties."); // If there isn't a primary titled property, throw an exception.
         }
 
         /// <summary>
@@ -336,38 +340,99 @@ namespace Pims.Dal.Services.Admin
         /// <summary>
         /// Update the specified parcel in the datasource.
         /// </summary>
-        /// <param name="entity"></param>
+        /// <param name="parcel"></param>
         /// <exception type="KeyNotFoundException">Entity does not exist in the datasource.</exception>
         /// <returns></returns>
-        public override void Update(Parcel entity)
+        public override void Update(Parcel parcel)
         {
-            entity.ThrowIfNull(nameof(entity));
-            entity.ThrowIfNotAllowedToEdit(nameof(entity), this.User, new[] { Permissions.SystemAdmin, Permissions.AgencyAdmin });
+            parcel.ThrowIfNull(nameof(parcel));
+            parcel.ThrowIfNotAllowedToEdit(nameof(parcel), this.User, new[] { Permissions.SystemAdmin, Permissions.AgencyAdmin });
 
-            var parcel = this.Context.Parcels.Find(entity.Id) ?? throw new KeyNotFoundException();
+            var originalParcel = this.Context.Parcels.Find(parcel.Id) ?? throw new KeyNotFoundException();
 
-            this.Context.Entry(parcel).CurrentValues.SetValues(entity);
+            var entry = this.Context.Entry(originalParcel);
+            entry.CurrentValues.SetValues(parcel);
+            entry.Collection(p => p.Evaluations).Load();
+            entry.Collection(p => p.Fiscals).Load();
 
-            this.Context.Parcels.ThrowIfNotUnique(entity);
+            this.Context.Parcels.ThrowIfNotUnique(parcel);
 
             // TODO: Update child properties appropriately.
-            base.Update(parcel);
+            foreach (var e in parcel.Evaluations)
+            {
+                // Only add an evaluation that does not exist.
+                if (!originalParcel.Evaluations.Any(pe => pe.Key == e.Key && pe.Date == e.Date))
+                {
+                    e.Parcel = originalParcel;
+                    this.Context.ParcelEvaluations.Add(e);
+                }
+            }
+
+            foreach (var f in parcel.Fiscals)
+            {
+                // Only add a fiscal that does not exist.
+                if (!originalParcel.Fiscals.Any(pf => pf.Key == f.Key && pf.FiscalYear == f.FiscalYear))
+                {
+                    f.Parcel = originalParcel;
+                    this.Context.ParcelFiscals.Add(f);
+                }
+            }
+
+            base.Update(originalParcel);
+        }
+
+        /// <summary>
+        /// Update the specified parcel financials in the datasource.
+        /// </summary>
+        /// <param name="parcel"></param>
+        public void UpdateFinancials(Parcel parcel)
+        {
+            parcel.ThrowIfNull(nameof(parcel));
+            parcel.ThrowIfNotAllowedToEdit(nameof(parcel), this.User, new[] { Permissions.SystemAdmin, Permissions.AgencyAdmin });
+
+            var originalParcel = this.Context.Parcels.Find(parcel.Id) ?? throw new KeyNotFoundException();
+
+            var entry = this.Context.Entry(originalParcel);
+            entry.Collection(p => p.Evaluations).Load();
+            entry.Collection(p => p.Fiscals).Load();
+
+            foreach (var e in parcel.Evaluations)
+            {
+                // Only add an evaluation that does not exist.
+                if (!originalParcel.Evaluations.Any(pe => pe.Key == e.Key && pe.Date == e.Date))
+                {
+                    e.Parcel = originalParcel;
+                    this.Context.ParcelEvaluations.Add(e);
+                }
+            }
+
+            foreach (var f in parcel.Fiscals)
+            {
+                // Only add a fiscal that does not exist.
+                if (!originalParcel.Fiscals.Any(pf => pf.Key == f.Key && pf.FiscalYear == f.FiscalYear))
+                {
+                    f.Parcel = originalParcel;
+                    this.Context.ParcelFiscals.Add(f);
+                }
+            }
+
+            base.Update(originalParcel);
         }
 
         /// <summary>
         /// Remove the specified parcel from the datasource.
         /// </summary>
         /// <exception type="KeyNotFoundException">Entity does not exist in the datasource.</exception>
-        /// <param name="entity"></param>
-        public override void Remove(Parcel entity)
+        /// <param name="parcel"></param>
+        public override void Remove(Parcel parcel)
         {
-            entity.ThrowIfNull(nameof(entity));
-            entity.ThrowIfNotAllowedToEdit(nameof(entity), this.User, new[] { Permissions.SystemAdmin, Permissions.AgencyAdmin });
+            parcel.ThrowIfNull(nameof(parcel));
+            parcel.ThrowIfNotAllowedToEdit(nameof(parcel), this.User, new[] { Permissions.SystemAdmin, Permissions.AgencyAdmin });
 
-            var parcel = this.Context.Parcels.Find(entity.Id) ?? throw new KeyNotFoundException();
+            var originalParcel = this.Context.Parcels.Find(parcel.Id) ?? throw new KeyNotFoundException();
 
-            this.Context.Entry(parcel).CurrentValues.SetValues(entity);
-            base.Remove(parcel);
+            this.Context.Entry(originalParcel).CurrentValues.SetValues(parcel);
+            base.Remove(originalParcel);
         }
         #endregion
     }

@@ -601,6 +601,7 @@ exports[`PagedBuildingForms functionality displays any pre-existing buildings 1`
                   className="form-check"
                 >
                   <input
+                    checked={true}
                     className="form-check-input position-static"
                     defaultChecked={true}
                     disabled={true}
@@ -625,9 +626,6 @@ exports[`PagedBuildingForms functionality displays any pre-existing buildings 1`
             <div
               className="col-md-10 form-group"
             >
-              <span
-                className=""
-              />
               <div
                 className="react-datepicker-wrapper"
               >
@@ -719,6 +717,7 @@ exports[`PagedBuildingForms functionality displays any pre-existing buildings 1`
                   className="col-md-10 form-check"
                 >
                   <input
+                    checked={false}
                     className="form-check-input position-static"
                     defaultChecked={false}
                     disabled={true}
@@ -808,7 +807,7 @@ exports[`PagedBuildingForms functionality displays any pre-existing buildings 1`
                         }
                       }
                     >
-                      Net Book
+                      Net Book Value
                     </div>
                     <div
                       className="th"
@@ -828,7 +827,7 @@ exports[`PagedBuildingForms functionality displays any pre-existing buildings 1`
                         }
                       }
                     >
-                      Estimated
+                      Estimated Market Value
                     </div>
                   </div>
                   <div
